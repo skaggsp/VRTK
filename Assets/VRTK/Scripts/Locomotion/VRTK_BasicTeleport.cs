@@ -131,33 +131,43 @@ namespace VRTK
         }
 
         /// <summary>
-        /// The ForceTeleport/1 method forces the teleport to update position without needing to listen for a Destination Marker event.
+        /// The Teleport/1 method calls the teleport to update position without needing to listen for a Destination Marker event.
         /// </summary>
         /// <param name="teleportArgs">The pseudo Destination Marker event for the teleport action.</param>
-        public virtual void ForceTeleport(DestinationMarkerEventArgs teleportArgs)
+        public virtual void Teleport(DestinationMarkerEventArgs teleportArgs)
         {
             DoTeleport(this, teleportArgs);
         }
 
         /// <summary>
-        /// The ForceTeleport/3 method forces the teleport to update position without needing to listen for a Destination Marker event.
+        /// The Teleport/4 method calls the teleport to update position without needing to listen for a Destination Marker event.
         ///  It will build a destination marker out of the provided parameters.
         /// </summary>
         /// <param name="target">The Transform of the destination object.</param>
         /// <param name="destinationPosition">The world position to teleport to.</param>
         /// <param name="destinationRotation">The world rotation to teleport to.</param>
         /// <param name="forceDestinationPosition">If true then the given destination position should not be altered by anything consuming the payload.</param>
-        public virtual void ForceTeleport(Transform target, Vector3 destinationPosition, Quaternion? destinationRotation = null, bool forceDestinationPosition = false)
+        public virtual void Teleport(Transform target, Vector3 destinationPosition, Quaternion? destinationRotation = null, bool forceDestinationPosition = false)
         {
-            DestinationMarkerEventArgs teleportArgs = new DestinationMarkerEventArgs();
-            teleportArgs.distance = Vector3.Distance(new Vector3(headset.position.x, playArea.position.y, headset.position.z), destinationPosition);
-            teleportArgs.target = target;
-            teleportArgs.raycastHit = new RaycastHit();
-            teleportArgs.destinationPosition = destinationPosition;
-            teleportArgs.destinationRotation = destinationRotation;
-            teleportArgs.forceDestinationPosition = forceDestinationPosition;
-            teleportArgs.enableTeleport = true;
-            ForceTeleport(teleportArgs);
+            DestinationMarkerEventArgs teleportArgs = BuildTeleportArgs(target, destinationPosition, destinationRotation, forceDestinationPosition);
+            Teleport(teleportArgs);
+        }
+
+        /// <summary>
+        /// The ForceTeleport method forces the position to update to a given destination and ignores any target checking or floor adjustment.
+        /// </summary>
+        /// <param name="destinationPosition">The world position to teleport to.</param>
+        /// <param name="destinationRotation">The world rotation to teleport to.</param>
+        public virtual void ForceTeleport(Vector3 destinationPosition, Quaternion? destinationRotation = null)
+        {
+            DestinationMarkerEventArgs teleportArgs = BuildTeleportArgs(null, destinationPosition, destinationRotation);
+            StartTeleport(this, teleportArgs);
+            CalculateBlinkDelay(blinkTransitionSpeed, destinationPosition);
+            Blink(blinkTransitionSpeed);
+            playArea.position = destinationPosition;
+            Quaternion updatedRotation = SetNewRotation(destinationRotation);
+            ProcessOrientation(this, teleportArgs, destinationPosition, updatedRotation);
+            EndTeleport(this, teleportArgs);
         }
 
         protected virtual void Awake()
@@ -200,6 +210,19 @@ namespace VRTK
                 VRTK_SDK_Bridge.HeadsetFade(blinkToColor, 0);
             }
             Invoke("ReleaseBlink", blinkPause);
+        }
+
+        protected virtual DestinationMarkerEventArgs BuildTeleportArgs(Transform target, Vector3 destinationPosition, Quaternion? destinationRotation = null, bool forceDestinationPosition = false)
+        {
+            DestinationMarkerEventArgs teleportArgs = new DestinationMarkerEventArgs();
+            teleportArgs.distance = Vector3.Distance(new Vector3(headset.position.x, playArea.position.y, headset.position.z), destinationPosition);
+            teleportArgs.target = target;
+            teleportArgs.raycastHit = new RaycastHit();
+            teleportArgs.destinationPosition = destinationPosition;
+            teleportArgs.destinationRotation = destinationRotation;
+            teleportArgs.forceDestinationPosition = forceDestinationPosition;
+            teleportArgs.enableTeleport = true;
+            return teleportArgs;
         }
 
         protected virtual void DoTeleport(object sender, DestinationMarkerEventArgs e)
